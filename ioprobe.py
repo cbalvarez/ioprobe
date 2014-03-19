@@ -2,6 +2,7 @@ import os
 import random
 import time
 import threading 
+import sys
 
 
 def parameters():
@@ -48,11 +49,19 @@ def collector(pid):
 	return lambda :(pid, collect_data(pid, f))
 
 
+def write_sec(s):
+	sec = str(s)
+	sys.stdout.write(str(sec))
+ 	for i in range(0, len(sec)): sys.stdout.write("\b")	
+	sys.stdout.flush()
+	
+
 def collect(collector_list): 
 	i = 0
+	sys.stdout.write("collecting... ")
 	try: 
 		while (keep_collecting):
-			print "collecting... %d" % i
+			write_sec(i)	
 			data = map(lambda x:x(), collector_list)
 			stats_collected.append( (time.time(), data ))
 			i=i+1
@@ -96,7 +105,7 @@ def fmtn(n):
 
 	 
 def print_report(data_to_print):
-	print "#    %15s %15s %15s" % ("char_w","tsysc_w","byte_w")
+	print "#    %15s %15s %13s" % ("wchar","syscw","write_bytes")
 	for i in range(0, len(data_to_print.values()[0])):
 		print "%4d %15s %15s %15s" % (i+1,fmtn(data_to_print['char_w'][i]),fmtn(data_to_print['sysc_w'][i]),fmtn(data_to_print['byte_w'][i]) )
 	
