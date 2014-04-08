@@ -6,7 +6,7 @@ import sys
 
 
 def parameters():
-	return (4, 1024*1024, 1000)
+	return (5, 1024*1024, 2000)
 
 
 def build_exec(blocksize, count):
@@ -56,14 +56,33 @@ def write_sec(s):
 	sys.stdout.flush()
 	
 
+def tot(name, stat):
+	return (name,sum(map (lambda x:int(x[name]),stat)))
+
+
+def group_stat(curr_stat):
+	stat = map (lambda x:x[1], curr_stat[1])
+ 	return dict(map (lambda x:tot(x,stat), ['char_w','sysc_w','byte_w']))
+
+
+def print_current(stats_collected, i):
+	if (i >= 1):
+		curr_tot = group_stat(stats_collected[i])
+		prev_tot = group_stat(stats_collected[i-1])
+		print "#%4d %15s %15s %15s" % (i, fmtn(curr_tot["char_w"] - prev_tot["char_w"]), fmtn(curr_tot["sysc_w"] - prev_tot["sysc_w"]), fmtn(curr_tot["byte_w"] - prev_tot["byte_w"]))
+			
+	   
+	  
+
 def collect(collector_list): 
 	i = 0
-	sys.stdout.write("collecting... ")
+	sys.stdout.write("generating load and measuring... \n")
+	print "#    %15s %15s %13s" % ("wchar","syscw","write_bytes")
 	try: 
 		while (keep_collecting):
-			write_sec(i)	
 			data = map(lambda x:x(), collector_list)
 			stats_collected.append( (time.time(), data ))
+			print_current(stats_collected,i)	
 			i=i+1
 			time.sleep(1)
 	except:
@@ -128,7 +147,6 @@ if __name__ == "__main__":
 	thread = launch_collectors(pf)
 	res = wait_for_workers(pf)
 	keep_collecting = False
-	report()
 
 
 		
