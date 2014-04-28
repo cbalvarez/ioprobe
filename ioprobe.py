@@ -3,6 +3,7 @@ import random
 import time
 import threading 
 import sys
+import signal
 
 
 def parameters():
@@ -11,7 +12,7 @@ def parameters():
 
 def build_exec(blocksize, count):
 	filename = "test.%d" % (random.random() * 1000)
-	return ("/bin/dd",["dd","if=/dev/zero","of=" + filename, "bs=%d" % blocksize, "count=%d" % count])
+	return ("/bin/dd",["dd","if=/dev/zero","of=" + filename, "bs=%d" % blocksize, "count=%d" % count, "oflag=direct"])
  
 
 def launch_process(qty, execgen):
@@ -22,14 +23,24 @@ def launch_process(qty, execgen):
 		if pid > 0:
 			pf.append(pid)
 		else:
+			os.setpgid(0,0)
 			os.execv(execname,params)
         return pf			
 
 
+def end_workers(pf):
+	for pid in pf:
+		os.kill(pid, signal.SIGQUIT)
+
 def wait_for_workers(pf):
         rcs = []
 	for pid in pf:
-		rc = os.waitpid(pid,0)
+		try: 
+			rc = os.waitpid(pid,0)
+		except KeyboardInterrupt:
+			end_workers(pf)
+			print "\n"
+			sys.exit(1)
 		rcs.append(rc)
 	return rcs	
 
