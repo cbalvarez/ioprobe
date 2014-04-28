@@ -4,9 +4,15 @@ import time
 import threading 
 import sys
 import signal
+import getopt
 
 
-def parameters():
+def parameters(argv):
+	opts, args = getopt.getopt(argv,"w:b:c:",["workers=","blocksize=","writecount="])
+	for opt, arg in opts:
+		if opt in ("--workers","-w"):
+			print "workers %s " % arg 
+		
 	return (5, 1024*1024, 2000)
 
 
@@ -23,14 +29,9 @@ def launch_process(qty, execgen):
 		if pid > 0:
 			pf.append(pid)
 		else:
-			os.setpgid(0,0)
 			os.execv(execname,params)
         return pf			
 
-
-def end_workers(pf):
-	for pid in pf:
-		os.kill(pid, signal.SIGQUIT)
 
 def wait_for_workers(pf):
         rcs = []
@@ -38,8 +39,6 @@ def wait_for_workers(pf):
 		try: 
 			rc = os.waitpid(pid,0)
 		except KeyboardInterrupt:
-			end_workers(pf)
-			print "\n"
 			sys.exit(1)
 		rcs.append(rc)
 	return rcs	
@@ -151,7 +150,7 @@ def report():
 if __name__ == "__main__":
 	keep_collecting = True
 	stats_collected = []
-	(qprocess, blocksize, count) = parameters()	
+	(qprocess, blocksize, count) = parameters(sys.argv[1:])	
 	(execname, params) = build_exec(blocksize, count)
 	execgen = lambda :build_exec(blocksize, count)
 	pf = launch_process(qprocess, execgen)
