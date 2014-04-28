@@ -7,18 +7,32 @@ import signal
 import getopt
 
 
+def print_usage():
+	print "usage: python ioproble.py -w <# of workers> -b <block size> -w <#blocks to write per worker> \n\n"
+
+def process_params(workers, blocksize, writecount):
+	if (workers == "" or blocksize == "" or writecount == "" ):
+		print_usage()
+		exit(1)
+	return (int(workers), blocksize, int(writecount))
+
+
 def parameters(argv):
 	opts, args = getopt.getopt(argv,"w:b:c:",["workers=","blocksize=","writecount="])
+	workers, blocksize, writecount = ("","","")
 	for opt, arg in opts:
 		if opt in ("--workers","-w"):
-			print "workers %s " % arg 
+			workers = arg
+		elif opt in ("--blocksize","-b"):
+			blocksize = arg
+		elif opt in ("--writecount","-c"):
+			writecount = arg
 		
-	return (5, 1024*1024, 2000)
-
+	return process_params(workers, blocksize, writecount)
 
 def build_exec(blocksize, count):
 	filename = "test.%d" % (random.random() * 1000)
-	return ("/bin/dd",["dd","if=/dev/zero","of=" + filename, "bs=%d" % blocksize, "count=%d" % count, "oflag=direct"])
+	return ("/bin/dd",["dd","if=/dev/zero","of=" + filename, "bs=%s" % blocksize, "count=%d" % count, "oflag=direct"])
  
 
 def launch_process(qty, execgen):
