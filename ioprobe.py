@@ -5,15 +5,24 @@ import threading
 import sys
 import signal
 import getopt
+import re
 
 
-def print_usage():
-	print "usage: python ioproble.py -w <# of workers> -b <block size> -w <#blocks to write per worker> \n\n"
+def params_fail():
+	print "usage: python ioproble.py -w <# of workers> -b <block size (k|M)?> -w <#blocks to write per worker> \n\n"
+	exit(1)
+	
+def check_param(param, regex):
+	if (re.match(regex, param) == None):
+		params_fail()
+
 
 def process_params(workers, blocksize, writecount):
 	if (workers == "" or blocksize == "" or writecount == "" ):
-		print_usage()
-		exit(1)
+		params_fail()
+	check_param(workers,"[0-9]+$")
+	check_param(blocksize,"[0-9]+(M|k)?")
+	check_param(writecount,"[0-9]+$")
 	return (int(workers), blocksize, int(writecount))
 
 
@@ -37,12 +46,16 @@ def build_exec(blocksize, count):
 
 def launch_process(qty, execgen):
 	pf = []
+	fd = open("/dev/null")
  	for i in range(0,qty):	
 		(execname,params) = execgen()
 		pid = os.fork()
 		if pid > 0:
 			pf.append(pid)
 		else:
+			os.dup2(fd.fileno(), sys.stdout.fileno()) 
+			os.dup2(fd.fileno(), sys.stderr.fileno()) 
+			fd.close()
 			os.execv(execname,params)
         return pf			
 
