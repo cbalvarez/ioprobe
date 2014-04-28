@@ -6,6 +6,7 @@ import sys
 import signal
 import getopt
 import re
+import ast
 
 
 def params_fail():
@@ -16,19 +17,25 @@ def check_param(param, regex):
 	if (re.match(regex, param) == None):
 		params_fail()
 
+def check_param_list(param, regex):
+	list = ast.literal_eval(param)
+	for l in list:
+		if (re.match(regex, l) == None):
+			params_fail()	
 
-def process_params(workers, blocksize, writecount):
+def process_params(workers, blocksize, writecount, list):
 	if (workers == "" or blocksize == "" or writecount == "" ):
 		params_fail()
 	check_param(workers,"[0-9]+$")
 	check_param(blocksize,"[0-9]+(M|k)?")
 	check_param(writecount,"[0-9]+$")
-	return (int(workers), blocksize, int(writecount))
+	check_param_list(list, "^(.*/)([^/]*)$")
+	return (int(workers), blocksize, int(writecount), ast.literal_eval(list))
 
 
 def parameters(argv):
-	opts, args = getopt.getopt(argv,"w:b:c:",["workers=","blocksize=","writecount="])
-	workers, blocksize, writecount = ("","","")
+	opts, args = getopt.getopt(argv,"w:b:c:d:",["workers=","blocksize=","writecount=","dirlist="])
+	workers, blocksize, writecount, list = ("","","", "")
 	for opt, arg in opts:
 		if opt in ("--workers","-w"):
 			workers = arg
@@ -36,19 +43,21 @@ def parameters(argv):
 			blocksize = arg
 		elif opt in ("--writecount","-c"):
 			writecount = arg
-		
-	return process_params(workers, blocksize, writecount)
+		elif opt in ("--dirlist","-d"):
+			list = arg
+	return process_params(workers, blocksize, writecount, list)
 
-def build_exec(blocksize, count):
+
+def build_exec(blocksize, count, directory):
 	filename = "test.%d" % (random.random() * 1000)
-	return ("/bin/dd",["dd","if=/dev/zero","of=" + filename, "bs=%s" % blocksize, "count=%d" % count, "oflag=direct"])
+	return ("/bin/dd",["dd","if=/dev/zero","of=%s/%s" %(directory,filename), "bs=%s" % blocksize, "count=%d" % count, "oflag=direct"])
  
 
-def launch_process(qty, execgen):
+def launch_process(qty, execgen, directories):
 	pf = []
 	fd = open("/dev/null")
  	for i in range(0,qty):	
-		(execname,params) = execgen()
+		(execname,params) = execgen(directories[i % len(directories)])
 		pid = os.fork()
 		if pid > 0:
 			pf.append(pid)
@@ -102,11 +111,15 @@ def group_stat(curr_stat):
  	return dict(map (lambda x:tot(x,stat), ['char_w','sysc_w','byte_w']))
 
 
+
 def print_current(stats_collected, i):
 	if (i >= 1):
 		curr_tot = group_stat(stats_collected[i])
 		prev_tot = group_stat(stats_collected[i-1])
-		print "#%4d %15s %15s %15s" % (i, fmtn(curr_tot["char_w"] - prev_tot["char_w"]), fmtn(curr_tot["sysc_w"] - prev_tot["sysc_w"]), fmtn(curr_tot["byte_w"] - prev_tot["byte_w"]))
+		char_w = curr_tot["char_w"] - prev_tot["char_w"]
+	 	sys_w = curr_tot["sysc_w"] - prev_tot["sysc_w"] 
+		byte_w = curr_tot["byte_w"] - prev_tot["byte_w"]
+		print "#%4d %15s %15s %15s" % (i, fmtn(char_w), fmtn(sys_w), fmtn(byte_w))
 			
 	   
 	  
@@ -160,27 +173,16 @@ def fmtn(n):
 	return "{:,}".format(n)
 
 	 
-def print_report(data_to_print):
-	print "#    %15s %15s %13s" % ("wchar","syscw","write_bytes")
-	for i in range(0, len(data_to_print.values()[0])):
-		print "%4d %15s %15s %15s" % (i+1,fmtn(data_to_print['char_w'][i]),fmtn(data_to_print['sysc_w'][i]),fmtn(data_to_print['byte_w'][i]) )
-	
-
-def report():
-	totstats = sum_stats()
-	data_to_print = dict(map ( lambda x:(x,calc_sec_rate( totstats[x])), totstats ))
-	print_report(data_to_print)
-
 
 
 
 if __name__ == "__main__":
 	keep_collecting = True
 	stats_collected = []
-	(qprocess, blocksize, count) = parameters(sys.argv[1:])	
-	(execname, params) = build_exec(blocksize, count)
-	execgen = lambda :build_exec(blocksize, count)
-	pf = launch_process(qprocess, execgen)
+	(qprocess, blocksize, count, directories) = parameters(sys.argv[1:])	
+	#(execname, params) = build_exec(blocksize, count)
+	execgen = lambda x:build_exec(blocksize, count, x)
+	pf = launch_process(qprocess, execgen, directories)
 	thread = launch_collectors(pf)
 	res = wait_for_workers(pf)
 	keep_collecting = False
