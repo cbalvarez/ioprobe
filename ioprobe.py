@@ -10,7 +10,7 @@ import ast
 
 
 def params_fail():
-	print "usage: python ioproble.py -w <# of workers> -b <block size (k|M)?> -w <#blocks to write per worker> \n\n"
+	print "usage: python ioproble.py -w <# of workers> -b <block size (k|M)?> -c <#blocks to write per worker> -d <directory listing>\n\n" 
 	exit(1)
 	
 def check_param(param, regex):
@@ -186,6 +186,7 @@ if __name__ == "__main__":
 	thread = launch_collectors(pf)
 	res = wait_for_workers(pf)
 	keep_collecting = False
+	print stats_collected
 
 
 		
